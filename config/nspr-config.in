@@ -102,7 +102,7 @@ if test -z "$includedir"; then
     includedir=@includedir@
 fi
 if test -z "$libdir"; then
-    libdir=@libdir@
+    libdir=`pkg-config --variable=libdir nspr`
 fi
 
 if test "$echo_prefix" = "yes"; then
@@ -136,12 +136,12 @@ if test "$echo_libs" = "yes"; then
       if test -n "$lib_nspr"; then
 	libdirs="$libdirs -lnspr${major_version}"
       fi
-      os_ldflags="@LDFLAGS@"
+      os_ldflags=`pkg-config --variable=ldflags nspr`
       for i in $os_ldflags ; do
 	if echo $i | grep \^-L >/dev/null; then
 	  libdirs="$libdirs $i"
         fi
       done
-      echo $libdirs @OS_LIBS@
+      echo $libdirs `pkg-config --variable=os_libs nspr`
 fi      
 
