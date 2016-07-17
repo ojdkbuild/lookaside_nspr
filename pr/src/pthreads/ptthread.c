@@ -868,6 +868,9 @@ static void _pt_thread_death_internal(void *arg, PRBool callDestructors)
 #if defined(DEBUG)
     memset(thred, 0xaf, sizeof(PRThread));
 #endif /* defined(DEBUG) */
+#if defined(__s390x__)
+    if (callDestructors)
+#endif
     PR_Free(thred);
 }  /* _pt_thread_death */
 
