@@ -17,6 +17,9 @@
 #ifdef WINCE
 typedef DWORD (*IntervalFuncType)(void);
 static IntervalFuncType intervalFunc;
+#else
+// http://stackoverflow.com/a/4999216/314015
+DWORD __stdcall timeGetTime(void);
 #endif
 
 void
