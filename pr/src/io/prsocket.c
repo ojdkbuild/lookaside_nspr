@@ -337,8 +337,8 @@ static PRStatus PR_CALLBACK SocketConnectContinue(
      * input/output.
      * To get result we need to use GetOverlappedResult. */
     if (fd->secret->overlappedActive) {
-        PR_ASSERT(fd->secret->nonblocking);
         PRInt32 rvSent;
+        PR_ASSERT(fd->secret->nonblocking);
         if (GetOverlappedResult(osfd, &fd->secret->ol, &rvSent, FALSE) == TRUE) {
             fd->secret->overlappedActive = PR_FALSE;
             PR_LOG(_pr_io_lm, PR_LOG_MIN,
@@ -742,6 +742,7 @@ static PRStatus PR_CALLBACK SocketClose(PRFileDesc *fd)
      * input/output. Before closing such a socket we must cancelIO.
      */
     if (fd->secret->overlappedActive) {
+      DWORD rvSent;
       PR_ASSERT(fd->secret->nonblocking);
       if (CancelIo((HANDLE) fd->secret->md.osfd) == TRUE) {
         PR_LOG(_pr_io_lm, PR_LOG_MIN,
@@ -752,7 +753,6 @@ static PRStatus PR_CALLBACK SocketClose(PRFileDesc *fd)
                ("SocketClose - CancelIo failed err=%x\n", err));
       }
 
-      DWORD rvSent;
       if (GetOverlappedResult((HANDLE)fd->secret->md.osfd, &fd->secret->ol, &rvSent, FALSE) == TRUE) {
         fd->secret->overlappedActive = PR_FALSE;
         PR_LOG(_pr_io_lm, PR_LOG_MIN,

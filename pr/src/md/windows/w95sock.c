@@ -333,11 +333,21 @@ _PR_MD_SENDTO(PRFileDesc *fd, const void *buf, PRInt32 amount, PRIntn flags,
 #if defined(_WIN64)
 
 static PRCallOnceType _pr_has_connectex_once;
-typedef BOOL (PASCAL FAR * _pr_win_connectex_ptr)(_In_ SOCKET s, _In_reads_bytes_(namelen) const struct sockaddr FAR *name, _In_ int namelen, _In_reads_bytes_opt_(dwSendDataLength) PVOID lpSendBuffer, _In_ DWORD dwSendDataLength, _Out_ LPDWORD lpdwBytesSent, _Inout_ LPOVERLAPPED lpOverlapped);
+typedef BOOL (PASCAL FAR * _pr_win_connectex_ptr)(_In_ SOCKET s, /*_In_reads_bytes_(namelen)*/ const struct sockaddr FAR *name, _In_ int namelen, /*_In_reads_bytes_opt_(dwSendDataLength)*/ PVOID lpSendBuffer, _In_ DWORD dwSendDataLength, _Out_ LPDWORD lpdwBytesSent, _Inout_ LPOVERLAPPED lpOverlapped);
 
 #ifndef WSAID_CONNECTEX
-#define WSAID_CONNECTEX \
-  {0x25a207b9,0xddf3,0x4660,{0x8e,0xe9,0x76,0xe5,0x8c,0x74,0x06,0x3e}}
+#define WSAID_CONNECTEX
+#define WSAID_CONNECTEX_DATA1 0x25a207b9
+#define WSAID_CONNECTEX_DATA2 0xddf3
+#define WSAID_CONNECTEX_DATA3 0x4660
+#define WSAID_CONNECTEX_DATA40 0x8e
+#define WSAID_CONNECTEX_DATA41 0xe9
+#define WSAID_CONNECTEX_DATA42 0x76
+#define WSAID_CONNECTEX_DATA43 0xe5
+#define WSAID_CONNECTEX_DATA44 0x8c
+#define WSAID_CONNECTEX_DATA45 0x74
+#define WSAID_CONNECTEX_DATA46 0x06
+#define WSAID_CONNECTEX_DATA47 0x3e
 #endif
 #ifndef SIO_GET_EXTENSION_FUNCTION_POINTER
 #define SIO_GET_EXTENSION_FUNCTION_POINTER 0xC8000006
@@ -354,17 +364,28 @@ static _pr_win_connectex_ptr _pr_win_connectex = NULL;
 
 static PRStatus PR_CALLBACK _pr_set_connectex(void)
 {
-    _pr_win_connectex = NULL;
     SOCKET sock;
     PRInt32 dwBytes;
     int rc;
+    GUID guid;
+    _pr_win_connectex = NULL;
 
     /* Dummy socket needed for WSAIoctl */
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == INVALID_SOCKET)
         return PR_SUCCESS;
 
-    GUID guid = WSAID_CONNECTEX;
+    guid.Data1 = WSAID_CONNECTEX_DATA1;
+    guid.Data2 = WSAID_CONNECTEX_DATA2;
+    guid.Data3 = WSAID_CONNECTEX_DATA3;
+    guid.Data4[0] = WSAID_CONNECTEX_DATA40;
+    guid.Data4[1] = WSAID_CONNECTEX_DATA41;
+    guid.Data4[2] = WSAID_CONNECTEX_DATA42;
+    guid.Data4[3] = WSAID_CONNECTEX_DATA43;
+    guid.Data4[4] = WSAID_CONNECTEX_DATA44;
+    guid.Data4[5] = WSAID_CONNECTEX_DATA45;
+    guid.Data4[6] = WSAID_CONNECTEX_DATA46;
+    guid.Data4[7] = WSAID_CONNECTEX_DATA47;
     rc = WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER,
                   &guid, sizeof(guid),
                   &_pr_win_connectex, sizeof(_pr_win_connectex),
@@ -382,6 +403,12 @@ PRInt32
 _PR_MD_TCPSENDTO(PRFileDesc *fd, const void *buf, PRInt32 amount, PRIntn flags,
                  const PRNetAddr *addr, PRUint32 addrlen, PRIntervalTime timeout)
 {
+    PROsfd osfd;
+    PRInt32 rv, err;
+    PRInt32 bytesSent;
+    DWORD rvSent;
+    BOOL option;
+    PRNetAddr bindAddr;
     if (!_fd_waiting_for_overlapped_done_lock) {
         PR_SetError(PR_NOT_IMPLEMENTED_ERROR, 0);
         return PR_FAILURE;
@@ -397,12 +424,10 @@ _PR_MD_TCPSENDTO(PRFileDesc *fd, const void *buf, PRInt32 amount, PRIntn flags,
         return PR_FAILURE;
     }
 
-    PROsfd osfd = fd->secret->md.osfd;
-    PRInt32 rv, err;
-    PRInt32 bytesSent = 0;
-    DWORD rvSent;
+    osfd = fd->secret->md.osfd;
+    bytesSent = 0;
 
-    BOOL option = 1;
+    option = 1;
     rv = setsockopt((SOCKET)osfd, IPPROTO_TCP, TCP_FASTOPEN, (char*)&option, sizeof(option));
     if (rv != 0) {
         err = WSAGetLastError();
@@ -417,7 +442,6 @@ _PR_MD_TCPSENDTO(PRFileDesc *fd, const void *buf, PRInt32 amount, PRIntn flags,
     }
 
     /* ConnectEx requires the socket to be initially bound. We will use INADDR_ANY. */
-    PRNetAddr bindAddr;
     memset(&bindAddr, 0, sizeof(bindAddr));
     bindAddr.raw.family = addr->raw.family;
 

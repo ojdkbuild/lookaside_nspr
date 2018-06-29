@@ -144,6 +144,8 @@ PRLock *_fd_waiting_for_overlapped_done_lock = NULL;
 
 void CheckOverlappedPendingSocketsAreDone()
 {
+  PRFileDescList *cur;
+  PRFileDescList *previous;
   if (!_fd_waiting_for_overlapped_done_lock ||
       !_fd_waiting_for_overlapped_done) {
     return;
@@ -151,12 +153,13 @@ void CheckOverlappedPendingSocketsAreDone()
 
   PR_Lock(_fd_waiting_for_overlapped_done_lock);
 
-  PRFileDescList *cur = _fd_waiting_for_overlapped_done;
-  PRFileDescList *previous = NULL;
+  cur = _fd_waiting_for_overlapped_done;
+  previous = NULL;
   while (cur) {
-    PR_ASSERT(cur->fd->secret->overlappedActive);
-    PRFileDesc *fd = cur->fd;
+    PRFileDesc *fd;
     DWORD rvSent;
+    PR_ASSERT(cur->fd->secret->overlappedActive);
+    fd = cur->fd;
     if (GetOverlappedResult((HANDLE)fd->secret->md.osfd, &fd->secret->ol, &rvSent, FALSE) == TRUE) {
       fd->secret->overlappedActive = PR_FALSE;
       PR_LOG(_pr_io_lm, PR_LOG_MIN,
@@ -171,7 +174,7 @@ void CheckOverlappedPendingSocketsAreDone()
     }
 
     if (!fd->secret->overlappedActive) {
-
+      PRFileDescList *del;
       _PR_MD_CLOSE_SOCKET(fd->secret->md.osfd);
       fd->secret->state = _PR_FILEDESC_CLOSED;
 #ifdef _PR_HAVE_PEEK_BUFFER
@@ -190,7 +193,7 @@ void CheckOverlappedPendingSocketsAreDone()
       } else {
         _fd_waiting_for_overlapped_done = cur->next;
       }
-      PRFileDescList *del = cur;
+      del = cur;
       cur = cur->next;
       PR_Free(del);
     } else {
